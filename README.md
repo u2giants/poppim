@@ -1,5 +1,22 @@
 # plane — POP Creations / Spruce Line PM Platform
 
+## Start Here
+
+If you are a new AI session or engineer with no prior context, read these first in order:
+
+1. `FUTURE_SESSION_START_HERE.md`
+2. `BUSINESS_INTELLIGENCE.md`
+3. `HANDOFF.md`
+4. `DATA_ACCESS_GUIDE.md`
+
+The most important current lesson is that the imported ClickUp data is **not** a single flat list of products. It contains at least:
+
+- buyer / retailer / season project cards
+- child SKU execution tasks
+- support and coordination tasks
+
+Do not design the replacement system as if every ClickUp record were the same business object.
+
 Custom self-hosted project management platform built on [Plane](https://github.com/makeplane/plane) (open-source, AGPL-3.0), customized to fit the real workflows of a licensed home decor product company.
 
 **Phase 1 (current): Learning** — passively observing the team's ClickUp behavior for ~14 business days before writing any Plane customization.

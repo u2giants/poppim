@@ -600,6 +600,7 @@ function extractLicensorFromPaths(paths) {
 const RESPONDENTS = {
   jessica: { name: 'Jessica', color: '#4263eb', light: '#eef2ff' },
   liz:     { name: 'Liz',     color: '#0ca678', light: '#e6fcf5' },
+  jen:     { name: 'Jen',     color: '#e67700', light: '#fff4e6' },
 };
 
 async function handleInterviewPage(request, env) {

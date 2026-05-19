@@ -1,7 +1,9 @@
 # Business Intelligence — POP Creations / Spruce Line PM Platform
 
-**Last updated:** 2026-05-18  
-**Sources:** Live D1 webhook events (Mar 30 – May 18, 2026), ClickUp snapshot (Mar 31, 2026), employee interviews (Rounds 1 & 2 with Jessica and Liz; Round 3 pending), owner context.
+**Last updated:** 2026-05-19  
+**Sources:** Direct Cloudflare D1 analysis, live D1 webhook events (Mar 30 – May 19, 2026), ClickUp snapshot imports, employee interviews (Jessica and Liz answered; Jen pending), owner context.
+
+**Read this with caution:** this document is a synthesis, not the raw source of truth. It is useful, but it does not replace direct D1 inspection. The most important structural fact learned from the live data is that the current ClickUp system mixes **project cards** and **SKU execution tasks**, and that distinction should drive the design of the replacement system.
 
 ---
 
@@ -61,6 +63,8 @@ The product lifecycle can be triggered three ways:
 | **B. Internal line refresh** | `customer refresh` tag (1,516 tasks) | Company decides proactively to refresh a product line — update designs, add new licensors/properties, expand a product category — without a buyer initiating it. Presented to buyers afterward. |
 | **C. New product development** | `New Prod Development` list (199 products), `prod development` tag (142 tasks) | Product development team identifies a new product format or category and develops it into a full concept before seeking buyer interest. |
 
+**Important implementation note:** these lists are not pure SKU lists. In live D1, they behave primarily like **project / presentation / brief records** that often have many child SKU tasks beneath them.
+
 ---
 
 ## 4. The Team
@@ -110,6 +114,15 @@ There are two levels:
 **Project card** = one offer to one buyer at one retailer for one season. Example: "Julie Greer at Burlington for Valentines 2027." Carries: buyer name, retailer, season, license restrictions, product types, on-shelf date, and PPS-requested date.
 
 **SKU card** = one specific product that a buyer picked from a presentation. Linked to its project card. Carries the full approval history from design through production.
+
+**Direct D1 evidence for this hierarchy:**
+
+- `Customer Refresh`: `264` parent cards and `2446` child tasks
+- `Customer Category Expansion`: `78` parent cards and `428` child tasks
+- `New Prod Development`: `199` parent cards and `457` child tasks
+- `Licensing Management`: `7281` parent cards and `4280` child tasks
+
+This is one of the most important findings in the project. The replacement system must model this explicitly rather than flattening everything into one issue type.
 
 ### The 17-stage pipeline (confirmed verbatim from Jessica, Q10)
 
@@ -200,6 +213,8 @@ The active products in Spruce Line skip the Concept/Licensor stages entirely. Li
 ### How Jen manages Spruce Line (requires Round 3 interview)
 The data strongly suggests Jen manages Spruce Line presentations as collections/catalogs (a "Gaming" collection, a "Christmas" collection, a "Soft Religion" collection) that she presents to multiple buyers. Individual products within a collection are likely tracked differently, or not at all, in ClickUp. This is a major gap — Jen's interview will reveal the actual process.
 
+**Status as of 2026-05-19:** Jen has not yet answered her interview round. The Spruce Line model is still provisional and should not be treated as finalized.
+
 ---
 
 ## 7. What's in the Database (D1)
@@ -212,9 +227,9 @@ The data strongly suggests Jen manages Spruce Line presentations as collections/
 
 | Table | Rows | What it contains |
 |-------|------|-----------------|
-| `products` | 9,069 | **Primary query surface.** Enriched, denormalized view of every ClickUp task that represents a product. Includes stage, licensor, retailer, milestone flags, revision counts, pipeline age, assignees. Always filter `WHERE is_internal = 0` to exclude the dev space. |
-| `tasks` | 17,751 | Raw ClickUp tasks from snapshot. Parent to most other tables. |
-| `status_transitions` | 17,978 | Every status change ever recorded. Most have `from_status = NULL` (snapshot import). Only ~473 have real from→to transitions (live webhook period). |
+| `products` | 9,069 | **Primary query surface, but not pure truth.** Enriched, denormalized view over imported ClickUp tasks. Useful for analysis, but it mixes project-like records and SKU-like records. Always filter `WHERE is_internal = 0`. |
+| `tasks` | 17,751 | Raw ClickUp tasks from snapshot. This is where the parent/child structure is most visible. |
+| `status_transitions` | 17,979 | Every status change ever recorded. Most have `from_status = NULL` (backfilled estimate). Only `214` currently have real from→to transitions from the live webhook path. |
 | `task_assignments` | 14,670 | Who was assigned to what task, with timestamps. |
 | `task_comments` | 244 | Comment text extracted from ClickUp. Many are NAS file paths or @mentions. |
 | `task_tags` | 13,333 | Tags on tasks — primary signal for licensor, channel, and workflow routing. |
@@ -222,18 +237,18 @@ The data strongly suggests Jen manages Spruce Line presentations as collections/
 | `workflow_stages` | 76 | Maps raw ClickUp status strings → clean stage names with stage_order and category. |
 | `checkpoint_map` | 27 | Defines all formal milestone checkpoints (concept_submitted through buyer_presentation). |
 | `product_checkpoints` | 32,534 | Per-product checkpoint records (which milestones each product has reached). |
-| `users` | 64 | User IDs only — names are NULL. Names come from the `events` table. |
+| `users` | 64 | User IDs and metadata. `events` is still the most reliable surface for recent human activity names. |
 | `spaces` | 3 | POP Creations, Spruce Line, designflow (internal dev). |
 | `lists` | 21 | All ClickUp lists across 3 spaces. |
 | `licensors` | 34 | Licensor reference table. |
 | `retailers` | 26 | Retailer reference table. |
-| `events` | 1,247 | Live webhook events Mar 30 – May 18, 2026. Contains user names. |
-| `interview_questions` | 27 | All interview Q&A (Rounds 1 & 2, Jessica + Liz). |
+| `events` | 1,255 | Live webhook events Mar 30 – May 19, 2026. Contains user names and recent update signals. |
+| `interview_questions` | 59 | Interview Q&A and pending questions. Jessica has 21 answered + 11 pending, Liz 15 answered, Jen 12 pending. |
 | `task_attachments` | 0 | Empty — `taskAttachmentUpdated` webhook not yet subscribed. |
 | `task_links` | 0 | Empty — `taskLinkedTasksUpdated` webhook not yet subscribed. |
 | `time_entries` | 0 | Empty — time tracking API returns no data. |
 | `custom_field_definitions` | 0 | Empty — list-level field definitions not yet fetched. |
-| `workspaces` | 1 | Single workspace (ID: 2298436). |
+| `workspaces` | 0 | Structurally present but currently empty in D1. |
 
 ### Key lists
 
@@ -267,6 +282,8 @@ The data strongly suggests Jen manages Spruce Line presentations as collections/
 | (Ideation stages) | Ideation | ~163 combined | ~36 |
 
 **Key observation:** 1,574 products are at "Concept Approved" but have no active next step. These are approved designs sitting dormant, waiting for a buyer to place a PO. What triggers them to advance — or be abandoned — is unclear.
+
+**Correction from direct D1 review:** the database cannot yet prove this cleanly enough to treat every one of these as truly waiting in the same business state. Many records in the system are old, non-closed, or partially stale. The real modeling need is a clearer lifecycle distinction between active, waiting on buyer, parked, canceled, and complete.
 
 ### Milestones reached (of 9,051 products)
 
@@ -371,7 +388,13 @@ Recent task comments show:
 - `attachments` (52) — files being added, though not captured as dedicated webhook events
 - Peak hours: 9am–1pm Eastern
 
-The only live status transitions with known from→to are mostly from the `designflow` (software dev) space. Product pipeline transitions during this window show the actual flow rarely captured: `int apprvd/selections made` → `smpl req`, `send out art for po` → `complete`, `with buyer for approval` → various states.
+The only live status transitions with known from→to are mostly from the `designflow` (software dev) space. Product pipeline transitions during this window are sparse but still useful. Product examples seen directly in D1 include:
+
+- `int apprvd/selections made` → `smpl req`
+- `send out art for po` → `complete`
+- `with buyer for approval` → later execution states
+
+Treat webhook transition analytics as a partial live sample, not a full historical truth set.
 
 ---
 
@@ -542,6 +565,8 @@ These are the exact questions she said she would use every week:
 - What triggers a "Concept Approved" product to finally get a PO and advance — vs sit dormant indefinitely?
 - Some products have been in the pipeline for 4–5 years. Are these actively being worked on, or just never closed?
 - Who creates the costing sheet and when? How does it currently connect to the ClickUp task?
+- What exact business event creates a child SKU under a project card?
+- If a design is reused or adapted for another buyer, should that be the same SKU, a linked derivative, or a separate SKU?
 
 **For Liz (Round 3):**
 - What did Sarbani used to approve that Liz now handles? Has the Creative Director role changed since Sarbani left?
@@ -554,9 +579,13 @@ These are the exact questions she said she would use every week:
 - What "Edge Generic" is and how it works
 - Pain points specific to non-licensed product development
 - What tools she'd want that she doesn't have
+- When a Spruce design is reused for multiple buyers, should that reuse be modeled as duplicate, derivative, or same record?
+- If only part of a Spruce collection is selected, what should become the execution unit in the new system: project, collection, or SKU?
 
 **Data gaps still open:**
 - `buyer` field in products stores UUIDs, not names — needs resolution
 - Product category only populated for 57 of 9,069 products
-- User table has no names — only from `events` table
+- Field coverage is generally sparse (`retailer` 200 / 9,051, `buyer` 17 / 9,051, `product_category` 57 / 9,051)
+- Comments are much sparser than earlier summaries implied
+- The `products` table should not be treated as a perfect one-row-per-business-product truth layer
 - Time tracking: 0 entries despite being enabled

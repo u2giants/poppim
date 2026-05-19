@@ -1,6 +1,8 @@
 # Data Access Guide — POP Creations / Spruce Line Platform
 
-This document gives a second AI session everything needed to independently access and analyze the data collected from ClickUp and from employee interviews.
+This document gives a second AI session the direct data-access details needed to independently inspect D1 and the interview data.
+
+**Read first:** `FUTURE_SESSION_START_HERE.md` for the higher-level truths, caveats, and unresolved modeling questions. This file is the access reference, not the full business synthesis.
 
 ---
 
@@ -34,8 +36,16 @@ Note: D1 uses SQLite syntax.
 
 ## Key Tables and How to Use Them
 
-### `products` — Start here. The primary query surface.
-9,069 rows. One row per product. Denormalized and enriched.
+### `products` — Start here, but do not stop here.
+9,069 rows. Denormalized and enriched.
+
+**Important caution:** this table is useful, but it is not a perfect one-row-per-business-product truth layer. The imported ClickUp data mixes:
+
+- parent project / presentation cards
+- child SKU execution work
+- support tasks
+
+Use `tasks` when you need to validate hierarchy, parent/child structure, or whether a record is project-like versus SKU-like.
 
 **Always add `WHERE is_internal = 0`** to exclude the internal software dev space.
 
@@ -188,7 +198,11 @@ Key fields:
 ---
 
 ### `interview_questions` — All interview Q&A
-49 rows (Rounds 1, 2, and 3). Rounds 1 & 2 are answered. Round 3 questions are inserted (status = 'pending').
+59 rows as of 2026-05-19.
+
+- Jessica: 21 answered, 11 pending
+- Liz: 15 answered, 0 pending
+- Jen: 0 answered, 12 pending
 
 | Column | Notes |
 |--------|-------|
@@ -211,6 +225,15 @@ SELECT respondent, question, answer FROM interview_questions WHERE status = 'ans
 **To read pending Round 3 questions:**
 ```sql
 SELECT id, respondent, topic, question FROM interview_questions WHERE status = 'pending' ORDER BY respondent, id
+```
+
+**To see who responded most recently:**
+```sql
+SELECT respondent, MAX(answered_at) AS last_answered_at, COUNT(*) AS answered_cnt
+FROM interview_questions
+WHERE status = 'answered'
+GROUP BY respondent
+ORDER BY respondent;
 ```
 
 ---
@@ -292,6 +315,19 @@ Server UUID: onwp0kd7w1w74w9yeotnoihp
 ---
 
 ## Suggested Starting Queries
+
+**Before deep analysis, validate the hierarchy directly:**
+```sql
+SELECT
+  l.name AS list_name,
+  COUNT(*) AS total_tasks,
+  SUM(CASE WHEN t.parent_task_id IS NULL OR t.parent_task_id = '' THEN 1 ELSE 0 END) AS parent_cards,
+  SUM(CASE WHEN t.parent_task_id IS NOT NULL AND t.parent_task_id != '' THEN 1 ELSE 0 END) AS child_tasks
+FROM tasks t
+LEFT JOIN lists l ON l.id = t.list_id
+GROUP BY l.name
+ORDER BY total_tasks DESC;
+```
 
 **Understand the current active pipeline:**
 ```sql

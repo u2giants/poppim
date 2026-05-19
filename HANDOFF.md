@@ -6,6 +6,8 @@
 
 This handoff is intentionally scoped. The AI interview system lives in a separate repo (`u2giants/bizanalysis`). This session is only about designing Plane.
 
+**Read this after** `FUTURE_SESSION_START_HERE.md`. That file contains the clearest current summary for a completely new session.
+
 ---
 
 ## What This Project Is
@@ -14,7 +16,7 @@ The company currently tracks all product work in **ClickUp**. The goal is to rep
 
 Plane is already deployed on Coolify (production server: `178.156.180.212`). The deployment infrastructure is working. The open task is **figuring out how to design Plane's workspace, projects, states, and workflows to match the real business process** — not generic PM defaults.
 
-The ClickUp behavior data has already been collected (9,069 products, 49 days of live webhook events, employee interviews). The design work is to use that intelligence to make decisions about the Plane configuration.
+The ClickUp behavior data has already been collected and loaded into D1. The design work is to use that intelligence to make decisions about the Plane configuration.
 
 ---
 
@@ -85,7 +87,14 @@ Carries: buyer name, retailer, season, license restrictions, product types offer
 Linked to its project card.  
 Carries: the full approval history from art creation through production approval.
 
-This parent-child relationship is currently informal in ClickUp and a source of confusion. Plane needs to make it explicit.
+This parent-child relationship is visible directly in the raw D1 `tasks` table and is one of the most important truths in the project:
+
+- `Customer Refresh`: `264` parent cards, `2446` child tasks
+- `Customer Category Expansion`: `78` parent cards, `428` child tasks
+- `New Prod Development`: `199` parent cards, `457` child tasks
+- `Licensing Management`: `7281` parent cards, `4280` child tasks
+
+Plane needs to make this relationship explicit rather than flattening everything into one issue type.
 
 ---
 
@@ -180,7 +189,13 @@ This is what the data reveals that the Plane design should reflect:
 
 ## Round 3 Interview Questions (Pending in D1)
 
-These 22 questions are inserted into the `interview_questions` table in D1 with `status = 'pending'`. They represent the gaps in understanding that still need to be filled before the Plane design can be finalized. The interview system to deliver them is being built separately (`u2giants/bizanalysis`). Here is what we still need to learn:
+These questions are inserted into the `interview_questions` table in D1 with `status = 'pending'`. They represent the gaps in understanding that still need to be filled before the Plane design can be finalized. The interview system to deliver them is being built separately (`u2giants/bizanalysis`).
+
+**Current status as of 2026-05-19:**
+
+- Jessica: `21` answered, `11` pending
+- Liz: `15` answered, `0` pending
+- Jen: `0` answered, `12` pending
 
 ### For Jessica (Project Manager) — 6 questions
 
@@ -192,6 +207,13 @@ These 22 questions are inserted into the `interview_questions` table in D1 with 
 | Product lifecycle | Some products have been open 4–5 years. Are they active, or just never closed? How do you decide to cancel? |
 | Costing sheet | Who creates it and when? How does a designer find factory constraints before designing? |
 | Brand Assurance | What is the Brand Assurance checkpoint? Who does it and when? |
+
+**Additional questions added on 2026-05-19:**
+
+| Topic | Question |
+|-------|----------|
+| SKU creation trigger | What exact business event creates a child SKU under a project card? |
+| Reuse / derivatives | If a design is reused or adapted for another buyer, should it be the same SKU, a linked derivative, or a separate SKU? |
 
 ### For Liz (Creative Director) — 6 questions
 
@@ -218,6 +240,13 @@ These 22 questions are inserted into the `interview_questions` table in D1 with 
 | Buyer selections | When a buyer makes selections — does that get tracked in ClickUp or somewhere else? |
 | Wishlist | If you could have any tool you don't have today, what would it be? |
 | File workflow | When you finish designing something, what do you do with the file? |
+
+**Additional questions added on 2026-05-19:**
+
+| Topic | Question |
+|-------|----------|
+| Reuse model | When a Spruce design or collection is reused for multiple buyers, should that reuse be a duplicate, derivative, or same record? |
+| Selection split | If a buyer likes only part of a collection, what should become the execution unit in the new system: project, collection, or SKU? |
 
 **Design implication:** The Spruce Line workflow in Plane cannot be finalized until Jen's interview is complete. The data suggests her ClickUp tasks track collections/presentations (names like "Gaming - updated 10.27.25", "BCF - Kim/Anna - New Formats") rather than individual SKUs. Whether Plane should model Spruce Line as collections-of-designs vs individual products is unknown until Jen answers.
 
@@ -270,11 +299,11 @@ These 22 questions are inserted into the `interview_questions` table in D1 with 
 Uses SQLite syntax. Always add `WHERE is_internal = 0` to exclude the internal dev space.
 
 **Key tables:**
-- `products` (9,069 rows) — primary query surface; one row per product, denormalized
+- `products` (9,069 rows) — primary query surface, but not perfect one-row-per-business-product truth
 - `workflow_stages` (76 rows) — maps raw ClickUp status strings to clean stage names
 - `checkpoint_map` (27 rows) — formal milestone definitions
-- `events` (1,247 rows) — live webhook events with real user names
-- `interview_questions` — all Q&A from rounds 1 & 2 (answered) and round 3 (pending)
+- `events` (1,255 rows) — live webhook events with real user names
+- `interview_questions` (59 rows) — all answered and pending interview content
 
 Full table reference: `DATA_ACCESS_GUIDE.md` in this repo.
 
@@ -322,6 +351,20 @@ Design how Plane should be structured to serve this company's real workflows. Th
 6. **Views** — Define the key views for each role: PM dashboard, CD review queue, designer workload, licensing tracker.
 
 7. **Automation** — What stage transitions should trigger notifications? What validations should block advancement?
+
+### Critical modeling warning
+
+Do not start by asking "how do we map ClickUp lists to Plane projects?"
+
+Start by asking:
+
+- what is a project brief?
+- what is a preliminary design?
+- what is a reusable concept?
+- what is a picked SKU?
+- what is a derivative SKU for another buyer?
+
+The replacement system will only be materially better than ClickUp if those domain objects are made explicit.
 
 ### What to decide before writing any code
 
