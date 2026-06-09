@@ -3,7 +3,11 @@
 **Last updated:** 2026-05-28  
 **Sources:** Direct Cloudflare D1 analysis, live D1 webhook events (Mar 30 – May 19, 2026), ClickUp snapshot imports, employee interviews (all complete: Jessica Rounds 1–3, Liz Rounds 2–3, Jen Round 4 — June 9, 2026), owner context.
 
-**Interview synthesis:** See `docs/interview-synthesis.md` for the full, self-contained translation of all 77 interview answers (both business units) into concrete system requirements and design decisions. That document is the authoritative requirements source and supersedes the open questions below.
+**Canonical documents (read these first):** the interview material is now split into two focused docs that this file backs with data:
+- `docs/business-process.md` — how the company works, the product journey, who touches what, and how the team wishes it ran (no software).
+- `docs/pm-system-design.md` — current ClickUp usage and how to tailor open-source Plane into the target PM system (the implementation plan).
+
+This file (`BUSINESS_INTELLIGENCE.md`) is the **data-evidence layer** behind both: live D1 analysis, volumes, tag taxonomy, pipeline/checkpoint definitions, and the SLA tables. The older `docs/interview-synthesis.md` is now a pointer to the two canonical docs.
 
 **Read this with caution:** this document is a synthesis, not the raw source of truth. It is useful, but it does not replace direct D1 inspection. The most important structural fact learned from the live data is that the current ClickUp system mixes **project cards** and **SKU execution tasks**, and that distinction should drive the design of the replacement system.
 
