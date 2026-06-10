@@ -1,6 +1,8 @@
-# PM System Design — From ClickUp to a Tailored Plane
+# PM System Design — From ClickUp to a Tailored PM Platform
 
-**Purpose.** This document is for whoever builds the company's replacement project management system. It covers the **software**: how the team uses **ClickUp** today, what's broken about that, and how to tailor the open-source **Plane** PM platform into the most efficient system for *this* company — specifically, into the system Jen, Jessica, and Liz actually want.
+> **⚠️ PLATFORM SUPERSEDED — needs re-targeting.** This document is written against **Plane**, which we evaluated and **rejected** (see `plane-free-edition-gaps.md`). The chosen platform is now **Directus** (see `platform-decision-report.md` for *why* and `directus-execution-plan.md` for *how*). The **requirements, pain points, data model, and feature list below remain valid** — only the *Plane-specific* mechanics (Issue Types, the 2.x constraints, the Plane build list) are obsolete. This doc is queued to be re-targeted from Plane to Directus.
+
+**Purpose.** This document is for whoever builds the company's replacement project management system. It covers the **software**: how the team uses **ClickUp** today, what's broken about that, and how to tailor the chosen PM platform into the most efficient system for *this* company — specifically, into the system Jen, Jessica, and Liz actually want.
 
 **Read the companion first.** `business-process.md` explains the business and the workflow with no software in it. This document assumes you've read it and uses its vocabulary (offer/project, SKU, design collection, style number, licensing sheet, Brand Assurance, PI, PPS, on-shelf date). Every feature below traces back to a pain point documented there.
 
