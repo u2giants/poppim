@@ -109,7 +109,7 @@ Naming follows the standard (`poppim-app`, `poppim-db`); Coolify appends the ser
 - **`svc@popcre.com`** = the automation/script admin (provider `default`, password in Coolify `DX_ADMIN_PASSWORD`, also `DX_ADMIN_EMAIL` in the local secrets file). Used by `apply-schema.mjs` / migration scripts.
 **Why:** Entra's userinfo doesn't return `email`, so SSO keys on `preferred_username` (the UPN). A single user can't be both password-auth (for scripts) and microsoft-auth (for SSO), so they're split.
 **Do not change because:** changing `albert@popcre.com`'s provider away from `microsoft` breaks his SSO; renaming `svc@popcre.com` breaks the scripts (update the secrets file too).
-**Adding staff:** SSO **auto-registration is OFF** (`AUTH_MICROSOFT_ALLOW_PUBLIC_REGISTRATION=false`). To let an employee sign in, first create a Directus user with their `@popcre.com` UPN as **both** email and `external_identifier`, provider `microsoft`, and the desired role. (`DEFAULT_ROLE_ID` is set to the non-admin Designer role as a safety net if registration is ever re-enabled.)
+**Staff onboarding:** SSO **auto-registration is ON** (`AUTH_MICROSOFT_ALLOW_PUBLIC_REGISTRATION=true`). Any `@popcre.com` tenant user who signs in is auto-provisioned as a **non-admin Designer** (`AUTH_MICROSOFT_DEFAULT_ROLE_ID = 7c7299c9-bf6c-44f6-b952-b6983a3ca6e8`). Only org users can authenticate (the Entra app is single-tenant `AzureADMyOrg`). Admins re-assign a new user's role afterward (e.g. to Sales/Licensing) — the Designer default is just a safe non-admin landing role; never make it an admin role.
 
 ### Custom domain set in Coolify's database
 **Looks like:** someone hand-edited Coolify's Postgres (`service_applications.id=15.fqdn`).
