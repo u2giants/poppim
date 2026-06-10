@@ -82,7 +82,8 @@ PM domain model: 14 Directus collections (POP 2-tier `project→product`, Spruce
 | Coolify server (this VPS) | `onwp0kd7w1w74w9yeotnoihp` | localhost, `178.156.180.212` |
 | Cloudflare zone `designflow.app` | `921eb133a3f7d5802780445b283f84ce` | `pm` A-record → `178.156.180.212`, DNS-only |
 | Entra app "POP PIM — Directus SSO" | appId `55bf6302-0d58-4246-b0e2-970b8371fd70` | tenant `1caeb1c0-a087-4cb9-b046-a5e22404f971`; redirect `https://pm.designflow.app/auth/login/microsoft/callback` |
-| Directus admin | `Albert@popcre.com` | password in Coolify env `DX_ADMIN_PASSWORD` |
+| Directus SSO admin | `albert@popcre.com` (provider microsoft) | Albert signs in via Microsoft; see §11 |
+| Directus script admin | `svc@popcre.com` (provider default) | password in Coolify `DX_ADMIN_PASSWORD`; used by scripts |
 | Legacy worker | `plane-integrations` | `plane-integrations.u2giants.workers.dev`; D1 `c37aeb36-e16e-416b-b699-c910f6f8dc10` — **do not rename** |
 
 ## 9. Container and service inventory
@@ -100,6 +101,15 @@ Naming follows the standard (`poppim-app`, `poppim-db`); Coolify appends the ser
 `node_modules/`, `dist/`, `.cache/`, `coverage/`, `scripts/__pycache__/`, `pm-system/schema-snapshot.yaml` (generated reference, large), `*.dump`. The local secrets file `/home/ai/.poppim-deploy.env` is **not** in the repo and must never be committed.
 
 ## 11. Intentional quirks and non-obvious decisions
+
+### Two admin users; SSO matches on `external_identifier` + `provider`
+**Looks like:** there are two admins — `albert@popcre.com` (provider `microsoft`) and `svc@popcre.com` (provider `default`).
+**Actually:** Directus's OIDC login matches a user by `LOWER(external_identifier)` AND requires the user's `provider` to equal the driver (`microsoft`). A local/password user (provider `default`) can **never** be matched by SSO even with the right `external_identifier`. So:
+- **`albert@popcre.com`** = Albert's SSO admin (provider `microsoft`, `external_identifier = Albert@popcre.com` = his UPN/`preferred_username`). He signs in via "Sign in with Microsoft".
+- **`svc@popcre.com`** = the automation/script admin (provider `default`, password in Coolify `DX_ADMIN_PASSWORD`, also `DX_ADMIN_EMAIL` in the local secrets file). Used by `apply-schema.mjs` / migration scripts.
+**Why:** Entra's userinfo doesn't return `email`, so SSO keys on `preferred_username` (the UPN). A single user can't be both password-auth (for scripts) and microsoft-auth (for SSO), so they're split.
+**Do not change because:** changing `albert@popcre.com`'s provider away from `microsoft` breaks his SSO; renaming `svc@popcre.com` breaks the scripts (update the secrets file too).
+**Adding staff:** SSO **auto-registration is OFF** (`AUTH_MICROSOFT_ALLOW_PUBLIC_REGISTRATION=false`). To let an employee sign in, first create a Directus user with their `@popcre.com` UPN as **both** email and `external_identifier`, provider `microsoft`, and the desired role. (`DEFAULT_ROLE_ID` is set to the non-admin Designer role as a safety net if registration is ever re-enabled.)
 
 ### Custom domain set in Coolify's database
 **Looks like:** someone hand-edited Coolify's Postgres (`service_applications.id=15.fqdn`).
