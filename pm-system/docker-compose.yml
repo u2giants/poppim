@@ -35,6 +35,8 @@ services:
       AUTH_MICROSOFT_DEFAULT_ROLE_ID: "7c7299c9-bf6c-44f6-b952-b6983a3ca6e8"   # non-admin Designer role (instance-specific uuid)
       WEBSOCKETS_ENABLED: "true"
       TELEMETRY: "false"
+    volumes:
+      - poppim-extensions:/directus/extensions   # persists Marketplace-installed extensions across redeploys (e.g. advanced-kanban-layout)
     depends_on:
       - poppim-db
   poppim-db:
@@ -47,3 +49,4 @@ services:
       - poppim-pgdata:/var/lib/postgresql/data
 volumes:
   poppim-pgdata:
+  poppim-extensions:

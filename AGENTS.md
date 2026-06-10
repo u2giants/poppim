@@ -124,6 +124,15 @@ Naming follows the standard (`poppim-app`, `poppim-db`); Coolify appends the ser
 ### Collections need `schema: {}` on create
 Creating a Directus collection via API without `schema: {}` makes a *folder* (no table). `apply-schema.mjs` handles this.
 
+### Kanban is a Marketplace extension, persisted on a volume
+**Looks like:** Directus has a native "Kanban (Advanced)" layout.
+**Actually:** Directus core has **no drag-Kanban** (only Table/Cards/Calendar/Map). The board comes from the community Marketplace extension **`advanced-kanban-layout`** (`^11.0.0`-compatible, MIT, installed via `POST /extensions/registry/install`). Marketplace extensions install into `/directus/extensions`, so a **named volume `poppim-extensions:/directus/extensions`** (in the compose) keeps it across redeploys — without it the extension vanishes on the next deploy. After install, **restart Directus** so the app loads it.
+**Default boards:** global default presets (`user=null, role=null`) make both landing collections open as boards: `project` → Kanban by `status` (`title={{title}}`), `product` → Kanban by `stage` (`groupTitle={{name}}, title={{name}}`). Layout id is `advanced-kanban-layout`; options live under `layout_options["advanced-kanban-layout"]`.
+**Reinstall (if recreating):** `node pm-system/setup-roles-and-flows.mjs` does roles+Flow; the Kanban + presets are applied via the Marketplace install call + preset POSTs (see §14 incident).
+
+### Content-collection order is set via `meta.sort`
+Login lands on the first non-hidden collection in the content nav. Collections sort by `meta.sort` (set on each via `PATCH /collections/:name`); `project` and `product` are pinned first, lookup tables (retailer/buyer/licensor/…) last. Without `sort`, Directus falls back to alphabetical (which dumped users on `buyer`/`licensor`).
+
 ## 12. Credentials and environment
 
 All runtime secrets live in **Coolify** (service `nzli…` env). None are in the repo. A local convenience copy is at `/home/ai/.poppim-deploy.env` (chmod 600, outside repo) — safe to delete once Coolify is the trusted source.
@@ -167,7 +176,9 @@ Deployed Directus + Postgres on Coolify at `pm.designflow.app`. Two non-obvious 
 | open | Repo cleanup | Archive legacy root docs → `docs/legacy/`, delete dead ones (awaiting Albert's OK from the earlier proposal) |
 | open | `apply-schema.mjs` creates a test Designer user | Remove user creation from `apply-schema.mjs` (keep it in `seed-and-verify.mjs` only) — it was deleted from prod manually |
 | open | Postgres backups | Add scheduled `pg_dump` of `poppim-db` + document retention |
-| open | Phase-1.x data model | M2M relations (multi-buyer seam), remaining Flows (dormant/SLA/notify), per-role saved Views |
+| open | Phase-1.x data model | M2M relations (multi-buyer seam), remaining Flows (dormant/SLA), per-role saved Views |
+| open | Designflow PLM integration | Pull role/user data from "Designflow PLM" to avoid duplicating it — awaiting access details (what/URL/auth) from Albert |
+| open | Verify new-user notify Flow end-to-end | "New user role reminder" Flow is active but only fires on a real `provider=microsoft` sign-in; confirm on next real SSO signup |
 | open | ClickUp → Directus migration import | Script under `pm-system/migration/` reading D1 → Directus API with `external_id` |
 | open | Orphaned Entra secret | One unused client secret exists on the SSO app (lost to a capture bug); remove for hygiene |
 | open | R2 file storage | Add R2 env to Coolify when needed (Directus uses local storage now; full design files stay on NAS) |
@@ -175,3 +186,6 @@ Deployed Directus + Postgres on Coolify at `pm.designflow.app`. Two non-obvious 
 | done | Deploy Directus PM to pm.designflow.app | Live + verified 2026-06-10 |
 | done | Repo + folder renamed plane → poppim | — |
 | done | Canonical standard saved | `/home/ai/Albert-AI-Standards/NEW-PROJECT-PROMPT.md` |
+| done | ClickUp import | 651 projects + 16,534 products imported via ClickUp API (`pm-system/migration/clickup-import.mjs`) |
+| done | Role taxonomy + new-user notify Flow | Designer/Sales/Licensing/Viewer/Administrator; `pm-system/setup-roles-and-flows.mjs`; 2026-06-10 |
+| done | Kanban boards | `advanced-kanban-layout` Marketplace extension on a persistent volume; Project (by status) + Product (by stage) global default boards; 2026-06-10 |
