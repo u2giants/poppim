@@ -211,7 +211,7 @@ Deployed Directus + Postgres on Coolify at `data.designflow.app`. Two non-obviou
 | open | ClickUp → Directus migration import | Script under `pm-system/migration/` reading D1 → Directus API with `external_id` |
 | open | Orphaned Entra secret | One unused client secret exists on the SSO app (lost to a capture bug); remove for hygiene |
 | open | R2 file storage | Add R2 env to Coolify when needed (Directus uses local storage now; full design files stay on NAS) |
-| open | Rebind `pm.designflow.app` to the PM frontend | `pm` stays the human URL for PM forever. It points at Directus only until `poppim-web` ships; at frontend launch, move `pm` off Coolify sub-app `id=16` fqdn onto the `poppim-web` app (and drop the `pm` SSO redirect from the Directus Entra app if unused) |
+| done | Rebind `pm.designflow.app` to the PM frontend | 2026-06-11 — dropped `pm` from Coolify sub-app `id=16` fqdn (now `data` only); `pm` added to `AUTH_MICROSOFT_REDIRECT_ALLOW_LIST`; `pm.designflow.app` now serves `poppim-web`. Data Studio is `data.designflow.app` only. |
 | open | Clean up rename leftovers | Orphaned Coolify sub-app row `service_applications.id=15` (poppim-app, fqdn nulled) and old Docker volumes `<uuid>_poppim-pgdata` / `_poppim-extensions` (kept as backup) — remove after a few days |
 | open | Reframe docs PIM-vs-backend | This repo is now the shared backend; `pm-system/` is the PIM domain. Deeper doc reframe (and possible `pm-system/`→domain folders) when CRM/DAM arrive |
 | open | Proper Coolify/CI deploy for `poppim-web` | Replace the temporary raw-docker `pm-dev` preview (§11) with a Coolify app: GHCR image + GitHub Actions, or Coolify git-build |
