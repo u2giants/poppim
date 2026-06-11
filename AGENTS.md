@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Canonical operating guide for the **directus** repo — the **shared backend for the POP super-app** (PIM now; CRM + DAM later, all on one Directus instance + one Postgres). Read this first; it routes you to everything else.
+Canonical operating guide for the **directus** repo — the **shared backend for the POP super-app** (PIM + CRM now; DAM later, all on one Directus instance + one Postgres). Read this first; it routes you to everything else.
 
 > **Renamed 2026-06-10:** repo `poppim`→`directus`, Coolify service/containers `poppim-*`→`directus-*`, volumes `poppim-*`→`directus-*`, folder `/worksp/poppim`→`/worksp/directus`, URL `pm.designflow.app`→**`data.designflow.app`**, secrets file `~/.poppim-deploy.env`→`~/.directus-deploy.env`. The three app **frontends** are separate repos/containers (`poppim-web`, `popcmr-web`, `popdam-web`); this repo is the backend only.
 >
@@ -8,7 +8,7 @@ Canonical operating guide for the **directus** repo — the **shared backend for
 
 ## 1. Project summary
 
-This repo runs the **shared Directus backend** (a headless data platform) that all three POP apps read/write: **PIM** (product/project management — the only one live today), and later **CRM** and **DAM**, sharing one database so their data interlinks. **live at https://data.designflow.app**. The PIM domain replaces ClickUp for two product lines — **POP Creations** (licensed home decor, 17-stage licensor pipeline) and **Spruce Line** (generic, 11-stage). Non-technical staff work in Directus **Data Studio** today; a dedicated **React frontend** (`poppim-web`, separate repo) is being built. Built by a non-programmer + AI agents, so the system is **configuration + Flows over custom code**.
+This repo runs the **shared Directus backend** (a headless data platform) that all three POP apps read/write: **PIM** (product/project management), **CRM**, and later **DAM**, sharing one database so their data interlinks. **live at https://data.designflow.app**. The PIM domain replaces ClickUp for two product lines — **POP Creations** (licensed home decor, 17-stage licensor pipeline) and **Spruce Line** (generic, 11-stage). The CRM domain replaced the Twenty fork on 2026-06-11. Non-technical staff may still use Directus **Data Studio**; dedicated React frontends serve the human app domains.
 
 The repo also still contains the **legacy ClickUp analytics** — a live Cloudflare Worker (`plane-integrations`) + Python snapshot scripts that feed a D1 database and a natural-language query endpoint. This will be repurposed to feed the PM system's AI assistant from Directus webhooks; it is NOT the PM system itself.
 
@@ -217,6 +217,7 @@ Deployed Directus + Postgres on Coolify at `data.designflow.app`. Two non-obviou
 | open | Proper Coolify/CI deploy for `poppim-web` | Replace the temporary raw-docker `pm-dev` preview (§11) with a Coolify app: GHCR image + GitHub Actions, or Coolify git-build |
 | open | Confirm end-to-end Microsoft SSO into the SPA | Redirect chain verified to the MS hand-off; the post-callback return + cookie set on a real tenant login is untested — confirm on first real SSO sign-in at `pm-dev` |
 | done | PIM frontend `poppim-web` (slice 1) | React/Vite/Tailwind/shadcn app, Design theme, board + task-detail with assignees/checklist/subtasks/comments; live preview at `pm-dev.designflow.app`; 2026-06-11 |
+| done | CRM cutover from Twenty to Directus | `crm.designflow.app` serves `popcmr-web`; Twenty server/worker stopped; Outlook ingest/reroute systemd timers + Fireflies webhook container live; ClickUp sync intentionally omitted; 2026-06-11 |
 | done | Collaboration model | `checklist_item`, `subtask`, `product_assignee` (M2M) + app-role perms (`pm-system/add-collaboration-model.mjs`); 2026-06-11 |
 | done | Rename backend poppim → directus | Repo/folder/service/containers/volumes → `directus`; URL → `data.designflow.app`; verified 16,534 products intact; 2026-06-10 |
 | done | Deploy Directus backend to data.designflow.app | Live + verified 2026-06-10 |
