@@ -12,8 +12,11 @@
 //     attachment's full public `url`, then download that original
 //
 // The original bytes are uploaded verbatim to the public `poppim` Space at
-// covers/<product-id>.<ext>; cover_url becomes the Spaces URL. Any stale
-// covers/<id>.webp from the earlier resized pass is deleted.
+// covers/<product-id>.<ext>; cover_url becomes the Spaces URL. A small webp
+// thumbnail is ALSO generated (sharp, <=400px) and uploaded to
+// covers/<product-id>_thumb.webp for the kanban cards — the board shows the
+// thumbnail, the opened card shows the full original. Any stale
+// covers/<id>.webp from a prior pass is deleted.
 //
 // Resumable via an offset checkpoint. ClickUp API calls are rate-limited to
 // ~85/min; direct CDN downloads + Spaces uploads run concurrently per page.
@@ -24,6 +27,7 @@
 //   node pm-system/migration/clickup-to-spaces.mjs
 import { createHash, createHmac } from 'node:crypto'
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
+import sharp from 'sharp'
 
 if (process.env.POPPIM_ENV_FILE) {
   for (const line of readFileSync(process.env.POPPIM_ENV_FILE, 'utf8').split('\n')) {
@@ -45,6 +49,8 @@ const CHECKPOINT = process.env.CHECKPOINT_FILE || '/tmp/clickup-to-spaces.checkp
 const PAGE = 100
 const CONCURRENCY = 4
 const CU_MIN_INTERVAL = 700 // ms between ClickUp API calls (~85/min, under the ~100/min cap)
+const THUMB_DIM = 400 // kanban-card thumbnail longest side (cards are ~280px; 400 gives retina headroom)
+const THUMB_QUALITY = 80
 const IMG = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif'])
 const EXT_BY_TYPE = { 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -113,6 +119,20 @@ async function s3Delete(key) {
   const headers = sigv4('DELETE', key, payloadHash, {})
   await fetch(`${PUBLIC_BASE}/${key}`, { method: 'DELETE', headers }) // best-effort
 }
+// Public objects are readable without signing — a plain HEAD is enough.
+async function s3Exists(key) {
+  try { const r = await fetch(`${PUBLIC_BASE}/${key}`, { method: 'HEAD' }); return r.ok } catch { return false }
+}
+
+// Generate + upload the kanban-card thumbnail from the original image bytes.
+async function putThumb(id, buf) {
+  const thumb = await sharp(buf, { failOn: 'none' })
+    .rotate()
+    .resize({ width: THUMB_DIM, height: THUMB_DIM, fit: 'inside', withoutEnlargement: true })
+    .webp({ quality: THUMB_QUALITY })
+    .toBuffer()
+  if (thumb?.length) await s3Put(`covers/${id}_thumb.webp`, thumb, 'image/webp')
+}
 
 function extFrom(contentType, url) {
   const ct = (contentType || '').split(';')[0].trim().toLowerCase()
@@ -127,7 +147,7 @@ function isStaleWebp(url) { return !!url && url.includes('digitaloceanspaces.com
 
 function loadCheckpoint() {
   if (existsSync(CHECKPOINT)) { try { return JSON.parse(readFileSync(CHECKPOINT, 'utf8')) } catch { /* ignore */ } }
-  return { offset: 0, processed: 0, uploaded: 0, done: 0, noImage: 0, failed: 0 }
+  return { offset: 0, processed: 0, uploaded: 0, done: 0, thumbOnly: 0, noImage: 0, failed: 0 }
 }
 function saveCheckpoint(c) { writeFileSync(CHECKPOINT, JSON.stringify(c)) }
 
@@ -138,6 +158,18 @@ async function resolveSource(p) {
 }
 
 async function migrateOne(p, c) {
+  // Already a Spaces original: nothing to re-fetch — just make sure the
+  // kanban thumbnail exists (backfills covers written before thumbs were added).
+  if (isSpacesOriginal(p.cover_url)) {
+    if (await s3Exists(`covers/${p.id}_thumb.webp`)) { c.done++; return }
+    try {
+      const r = await fetch(p.cover_url); if (!r.ok) return
+      await putThumb(p.id, Buffer.from(await r.arrayBuffer()))
+      c.thumbOnly = (c.thumbOnly || 0) + 1
+    } catch (e) { console.log(`  ~ thumb-backfill ${p.id}: ${e.message}`) }
+    return
+  }
+
   const src = await resolveSource(p)
   if (src === null) return // fetch failed; leave as-is, retry next run
   if (src === '') {
@@ -155,6 +187,10 @@ async function migrateOne(p, c) {
   const key = `covers/${p.id}.${ext}`
   try { await s3Put(key, buf, res.headers.get('content-type') || `image/${ext === 'jpg' ? 'jpeg' : ext}`) }
   catch (e) { console.log(`  ! put ${p.id}: ${e.message}`); c.failed++; return }
+
+  // Thumbnail for the kanban cards (the opened card uses the full original above).
+  try { await putThumb(p.id, buf) }
+  catch (e) { console.log(`  ~ thumb ${p.id}: ${e.message}`) } // non-fatal: card falls back to original
 
   if (isStaleWebp(p.cover_url) && ext !== 'webp') { try { await s3Delete(`covers/${p.id}.webp`) } catch { /* ignore */ } }
 
@@ -184,18 +220,15 @@ async function run() {
     }
     if (!batch.length) break
 
-    const todo = batch.filter((p) => !isSpacesOriginal(p.cover_url))
-    c.done += batch.length - todo.length
-
-    await pmap(todo, CONCURRENCY, async (p) => { await migrateOne(p, c); c.processed++ })
+    await pmap(batch, CONCURRENCY, async (p) => { await migrateOne(p, c); c.processed++ })
 
     c.offset += batch.length
     saveCheckpoint(c)
-    console.log(`[${new Date().toISOString()}] offset ${c.offset} | uploaded ${c.uploaded} done ${c.done} noImage ${c.noImage} failed ${c.failed}`)
+    console.log(`[${new Date().toISOString()}] offset ${c.offset} | uploaded ${c.uploaded} done ${c.done} thumbOnly ${c.thumbOnly||0} noImage ${c.noImage} failed ${c.failed}`)
     if (batch.length < PAGE) break
   }
 
   saveCheckpoint(c)
-  console.log(`[${new Date().toISOString()}] DONE: uploaded ${c.uploaded} done ${c.done} noImage ${c.noImage} failed ${c.failed}`)
+  console.log(`[${new Date().toISOString()}] DONE: uploaded ${c.uploaded} done ${c.done} thumbOnly ${c.thumbOnly||0} noImage ${c.noImage} failed ${c.failed}`)
 }
 run().catch((e) => { console.error(e); process.exit(1) })
