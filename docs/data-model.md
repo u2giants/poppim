@@ -134,6 +134,8 @@ Notation: **PK** id is Directus's default UUID. Types are Directus field types. 
 | business_unit | enum | always Spruce |
 | version_date | date | "updated 6.11.25" |
 | account_specific_for | M2O → retailer (nullable) | most are null; storage + Hobby Lobby are account-specific |
+| lifecycle_state / next_action / next_owner_user / next_owner_role / waiting_on / blocker_reason / blocked_since / risk_level | workflow fields | shared lifecycle and ownership layer (§3.2.1) |
+| last_meaningful_update_at / closure_reason / closed_at / closed_by | workflow fields | shared closure and reporting layer (§3.2.1) |
 
 **`project`** — an offer (POP) / an account-specific project (Spruce)
 | field | type | notes |
@@ -153,6 +155,8 @@ Notation: **PK** id is Directus's default UUID. Types are Directus field types. 
 | brief | text/rich | the creative brief |
 | status | enum | active \| won \| lost \| abandoned |
 | selections_pdf | file (asset) | Spruce selections doc |
+| lifecycle_state / next_action / next_owner_user / next_owner_role / waiting_on / blocker_reason / blocked_since / risk_level | workflow fields | shared lifecycle and ownership layer (§3.2.1) |
+| last_meaningful_update_at / closure_reason / closed_at / closed_by | workflow fields | shared closure and reporting layer (§3.2.1) |
 
 **`design`** — the **design library** (every preliminary design, picked or not; for Spruce, style-numbered art)
 | field | type | notes |
@@ -170,6 +174,8 @@ Notation: **PK** id is Directus's default UUID. Types are Directus field types. 
 | asset | M2O → asset (Phase 3, nullable) | thumbnail / full file in the DAM |
 | nas_path | string | interim until DAM seam exists |
 | thumbnail_url | string | interim (DAM DO-Spaces thumbnail) |
+| lifecycle_state / next_action / next_owner_user / next_owner_role / waiting_on / blocker_reason / blocked_since / risk_level | workflow fields | shared lifecycle and ownership layer (§3.2.1) |
+| last_meaningful_update_at / closure_reason / closed_at / closed_by | workflow fields | shared closure and reporting layer (§3.2.1) |
 
 **`product`** — the executable item: **SKU (POP)** / **Style# (Spruce)**
 | field | type | notes |
@@ -194,6 +200,27 @@ Notation: **PK** id is Directus's default UUID. Types are Directus field types. 
 | pi_status | enum (POP) | Required \| Not Required \| Completed (default "Not Required") |
 | closure_reason | enum | (null while open) cost \| licensing \| sampling \| buyer \| abandoned \| completed |
 | created_at / updated_at | timestamp | Directus built-ins (cycle age) |
+| lifecycle_state / next_action / next_owner_user / next_owner_role / waiting_on / blocker_reason / blocked_since / risk_level | workflow fields | shared lifecycle and ownership layer (§3.2.1) |
+| last_meaningful_update_at / closed_at / closed_by | workflow fields | shared closure and reporting layer (§3.2.1) |
+
+#### 3.2.1 Shared lifecycle and ownership fields
+
+These fields exist on `product`, `project`, `design`, and `design_collection`. They deliberately separate **business state** from **pipeline stage**: stage answers "where is it in the process?", lifecycle answers "what is happening to it as work?"
+
+| field | type | notes |
+|---|---|---|
+| lifecycle_state | enum | active \| waiting \| blocked \| parked \| reusable \| canceled \| abandoned \| complete |
+| next_action | text | plain-language next action, visible in queues and detail views |
+| next_owner_user | M2O → directus_users | specific person who owns the next move |
+| next_owner_role | M2O → directus_roles | role/team owner when no exact user is known |
+| waiting_on | enum | internal_design \| technical_design \| creative_director \| licensing \| licensor \| sales \| buyer \| sourcing \| factory \| production \| unknown |
+| blocker_reason | text | why the item is blocked/waiting |
+| blocked_since | timestamp | used for stuck-work reporting |
+| risk_level | enum | low \| medium \| high \| critical |
+| last_meaningful_update_at | timestamp | non-noise update date for freshness/staleness |
+| closure_reason | enum | cost \| licensing \| sampling \| buyer \| abandoned \| completed \| duplicate \| other |
+| closed_at | timestamp | when the object closed |
+| closed_by | M2O → directus_users | who closed it |
 
 **`order`** — purchase-order history (supports multi-buyer reuse + order history)
 | field | type | notes |
@@ -205,6 +232,72 @@ Notation: **PK** id is Directus's default UUID. Types are Directus field types. 
 | order_date | date | |
 | quantity | integer | |
 | **value** | decimal | 🔒pricing |
+| project | M2O → project | optional direct project/offer context |
+| status | enum | pending \| received \| in_production \| shipped \| complete \| canceled |
+| notes | text/rich | order-specific notes |
+
+**`product_submission`** — submissions to internal review, licensors, buyers, PPS, packaging, or production
+| field | type | notes |
+|---|---|---|
+| external_id / external_source | string | stable provenance for backfill/import dedupe |
+| product | M2O → product | submitted SKU/style |
+| project | M2O → project | offer/account context |
+| business_unit | enum | POP Creations \| Spruce Line |
+| submission_type | enum | internal_review \| licensing_sheet \| concept \| packaging \| pps_sample \| production |
+| recipient_type | enum | internal \| licensor \| buyer \| factory |
+| licensor | M2O → licensor | POP licensor when applicable |
+| submitted_by | M2O → directus_users | |
+| submitted_at / expected_response_at | timestamp | sent date and expected response date |
+| status | enum | draft \| ready \| submitted \| waiting \| changes_requested \| approved \| rejected \| canceled |
+| response_at / response_summary | timestamp / text | approval/rejection/change-request response |
+| brand_assurance_number / brand_assurance_file | string / M2O → directus_files | portal proof |
+| portal_url / portal_reference | string | external system seam |
+| revision_required | boolean | whether response generated a revision |
+| revision | M2O → revision_request | linked revision when one exists |
+| notes | text/rich | submission context |
+
+**`product_sample`** — factory, buyer, licensor, PPS, and production sample tracking
+| field | type | notes |
+|---|---|---|
+| external_id / external_source | string | stable provenance for backfill/import dedupe |
+| product | M2O → product | sampled SKU/style |
+| project | M2O → project | offer/account context |
+| factory | M2O → factory | factory producing the sample |
+| sample_type | enum | pps \| factory \| buyer \| licensor \| production \| resample |
+| requested_by | M2O → directus_users | |
+| requested_at / expected_at / received_at | timestamp | sample timing |
+| sent_to_buyer_at / sent_to_licensor_at | timestamp | outbound sample handoffs |
+| status | enum | not_required \| needed \| requested \| in_factory \| received \| under_internal_review \| sent_to_buyer \| sent_to_licensor \| approved \| revision_needed \| canceled |
+| primary_photo | M2O → directus_files | primary sample photo/proof |
+| photo_urls | text | additional URLs/NAS paths until DAM file relations mature |
+| notes | text/rich | sample notes |
+| revision_required / revision_reason | boolean / text | why a resample/revision is needed |
+| revision | M2O → revision_request | linked revision/resample request |
+
+**`revision_request`** — change requests from Liz/Jen, buyers, licensors, factories, or internal review
+| field | type | notes |
+|---|---|---|
+| external_id / external_source | string | stable provenance for backfill/import dedupe |
+| object_collection / object_id | string | generic target seam for non-product revisions |
+| product / project / design | M2O | explicit business context |
+| submission | M2O → product_submission | submission that generated the revision |
+| source | enum | liz \| jen \| licensor \| buyer \| factory \| internal |
+| requested_by_user / requested_by_external | M2O → directus_users / string | internal or external requester |
+| requested_at / due_at | timestamp | |
+| assigned_to | M2O → directus_users | person doing the revision |
+| status | enum | open \| in_progress \| resolved \| accepted \| rejected \| canceled |
+| body | text/rich | requested change |
+| markup_file | M2O → directus_files | markup/reference file |
+| resolved_at / resolution_note | timestamp / text | resolution record |
+
+**`pm_saved_view`** — saved view/preferences for the custom PM frontend
+| field | type | notes |
+|---|---|---|
+| user / role | M2O → directus_users/directus_roles | owner/default scope |
+| name / screen / business_unit | string / string / enum | view identity |
+| filters_json / sort_json / columns_json | json | serialized UI preferences |
+| is_default | boolean | default for the owner scope |
+| shared_with_role | M2O → directus_roles | optional shared role visibility |
 
 ### 3.3 Automation / ledger collections
 
